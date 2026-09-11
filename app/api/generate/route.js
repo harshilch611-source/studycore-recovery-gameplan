@@ -1,10 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
-  GAME_PLAN_SYSTEM_PROMPT, buildGamePlanPrompt,
-  ACT_GAME_PLAN_SYSTEM_PROMPT, buildACTGamePlanPrompt,
+  RECOVERY_SYSTEM_PROMPT, buildRecoveryPrompt,
 } from '../../../lib/prompts';
-import { buildGamePlanPdf } from '../../../lib/pdf-game-plan';
-import { buildPresentationBoth } from '../../../lib/pdf-presentation';
+import { buildRecoveryPdf } from '../../../lib/pdf-game-plan';
+import { buildRecoveryPresentation } from '../../../lib/pdf-presentation';
 
 export const maxDuration = 300;
 
@@ -41,40 +40,19 @@ export async function POST(request) {
 
         // ── Step 1: Pre-generation validation ───────────────────────────────────
         const missingFields = [];
-        const isACT = (studentData.testType || '').toUpperCase() === 'ACT';
 
-        const { totalScore, rwScore, mathScore, targetScore, domains } = studentData;
+        const { baselineScore, targetScore, hoursRemaining, studentName } = studentData;
 
-        if (isACT) {
-          // ACT validation: need composite (or all 4 sections) + target
-          const hasComposite = !!totalScore;
-          const hasSections  = !!(domains?.actEnglish && domains?.actMath && domains?.actReading && domains?.actScience);
-          if (!hasComposite && !hasSections) missingFields.push('ACT composite or all four section scores (English, Math, Reading, Science)');
-          if (!targetScore) missingFields.push('targetScore (ACT target composite)');
-        } else {
-          // SAT/PSAT validation: need total/sections + all 8 domains
-          if (!totalScore && !(rwScore && mathScore)) missingFields.push('currentScore (totalScore or rwScore+mathScore)');
-          if (!targetScore) missingFields.push('targetScore');
-
-          const domainMap = {
-            'domains.ii  (Information & Ideas)': domains?.ii,
-            'domains.cs  (Craft & Structure)': domains?.cs,
-            'domains.eoi (Expression of Ideas)': domains?.eoi,
-            'domains.sec (Standard English Conventions)': domains?.sec,
-            'domains.alg (Algebra)': domains?.alg,
-            'domains.am  (Advanced Math)': domains?.am,
-            'domains.psda (Problem-Solving & Data Analysis)': domains?.psda,
-            'domains.gt  (Geometry & Trigonometry)': domains?.gt,
-          };
-          for (const [label, val] of Object.entries(domainMap)) {
-            if (!val || val === 'N/A') missingFields.push(label);
-          }
-        }
+        // Recovery gameplan validation (minimal required fields)
+        if (!studentName) missingFields.push('studentName');
+        if (!baselineScore) missingFields.push('baselineScore (student\'s current/baseline SAT score)');
+        if (!targetScore) missingFields.push('targetScore (target SAT score)');
+        if (hoursRemaining === undefined || hoursRemaining === null) missingFields.push('hoursRemaining (hours left in program)');
 
         if (missingFields.length > 0) {
           line(controller, {
             status: 'error',
-            error: `Cannot generate — the following required fields are missing:\n• ${missingFields.join('\n• ')}`,
+            error: `Cannot generate recovery gameplan — the following required fields are missing:\n• ${missingFields.join('\n• ')}`,
           });
           return;
         }
@@ -84,8 +62,8 @@ export async function POST(request) {
 
         const client = new Anthropic({ apiKey });
 
-        const gamePlanSystemPrompt = isACT ? ACT_GAME_PLAN_SYSTEM_PROMPT : GAME_PLAN_SYSTEM_PROMPT;
-        const gamePlanPrompt       = isACT ? buildACTGamePlanPrompt(studentData) : buildGamePlanPrompt(studentData);
+        const systemPrompt = RECOVERY_SYSTEM_PROMPT;
+        const userPrompt = buildRecoveryPrompt(studentData);
 
         line(controller, { status: 'generating', message: 'Building game plan…' });
 
@@ -110,14 +88,14 @@ export async function POST(request) {
           line(controller, obj);
         }
 
-        let gamePlanMsg;
+        let recoveryMsg;
         try {
-          gamePlanMsg = await client.messages.create({
+          recoveryMsg = await client.messages.create({
             model: 'claude-sonnet-4-6',
             max_tokens: 64000,
             temperature: 0,
-            system: gamePlanSystemPrompt,
-            messages: [{ role: 'user', content: gamePlanPrompt }],
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
           });
         } catch (err) {
           const msg = err?.message ?? 'Unknown Anthropic API error';
@@ -130,12 +108,12 @@ export async function POST(request) {
           return;
         }
 
-        if (gamePlanMsg.stop_reason === 'max_tokens') {
-          bail({ status: 'error', error: 'Game plan response was cut off. Try reducing the number of weeks, then generate again.' });
+        if (recoveryMsg.stop_reason === 'max_tokens') {
+          bail({ status: 'error', error: 'Recovery plan response was cut off. Try generating again.' });
           return;
         }
 
-        // ── Step 2: Parse game plan JSON ─────────────────────────────────────────
+        // ── Step 2: Parse recovery plan JSON ────────────────────────────────────────
 
         function repairJson(str) {
           let inString = false;
@@ -177,16 +155,16 @@ export async function POST(request) {
           }
         }
 
-        let gamePlan;
+        let recoveryPlan;
         try {
-          gamePlan = parseJson(gamePlanMsg.content[0].text, 'Game plan');
+          recoveryPlan = parseJson(recoveryMsg.content[0].text, 'Recovery plan');
         } catch (err) {
-          bail({ status: 'error', error: `Game plan parse error: ${err.message}. Try generating again.` });
+          bail({ status: 'error', error: `Recovery plan parse error: ${err.message}. Try generating again.` });
           return;
         }
 
-        if (!gamePlan) {
-          bail({ status: 'error', error: 'Claude response missing game plan data.' });
+        if (!recoveryPlan) {
+          bail({ status: 'error', error: 'Claude response missing recovery plan data.' });
           return;
         }
 
@@ -194,13 +172,13 @@ export async function POST(request) {
         heartbeatPhase = 'building';
         line(controller, { status: 'building', message: 'Building PDF files…' });
 
-        const studentName = studentData.studentName || 'Student';
-        let gamePlanBuffer, presentationBuffer, pptxBuffer;
+        const displayName = studentName || 'Student';
+        let recoveryPdfBuffer, presentationBuffer, pptxBuffer;
         try {
           // Sequential — not parallel — to avoid peak memory from running
           // Puppeteer + React PDF renderer simultaneously on Vercel.
-          gamePlanBuffer = await buildGamePlanPdf(gamePlan, studentData, studentName);
-          const presResult = await buildPresentationBoth(gamePlan, studentData, studentName);
+          recoveryPdfBuffer = await buildRecoveryPdf(recoveryPlan, studentData, displayName);
+          const presResult = await buildRecoveryPresentation(recoveryPlan, studentData, displayName);
           presentationBuffer = presResult.pdfBuffer;
           pptxBuffer         = presResult.pptxBuffer;
         } catch (err) {
@@ -212,10 +190,10 @@ export async function POST(request) {
         // ── Step 4: Send result ────────────────────────────────────────────────
         line(controller, {
           status: 'done',
-          gamePlanBase64:     Buffer.from(gamePlanBuffer).toString('base64'),
+          recoveryPlanBase64:     Buffer.from(recoveryPdfBuffer).toString('base64'),
           presentationBase64: Buffer.from(presentationBuffer).toString('base64'),
           pptxBase64:         Buffer.from(pptxBuffer).toString('base64'),
-          studentName,
+          studentName: displayName,
         });
 
       } catch (err) {

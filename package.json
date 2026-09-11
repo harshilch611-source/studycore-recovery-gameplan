@@ -1,6 +1,7 @@
 {
-  "name": "studycore-generator",
+  "name": "studycore-recovery-gameplan",
   "version": "0.1.0",
+  "description": "Recovery gameplan generator for StudyCore guarantee students",
   "private": true,
   "scripts": {
     "dev": "next dev",
