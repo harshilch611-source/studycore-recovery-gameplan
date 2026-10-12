@@ -1,4 +1,5 @@
 export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
 
 const HIGHSCORES_API = 'https://api.highscores.ai/public/graphql';
 
@@ -9,7 +10,7 @@ export async function GET() {
   }
 
   const query = `{
-    studentReport(limit: 100) {
+    studentReport(limit: 500) {
       student { id name }
       topicAccuracy { topicName correct total accuracyPercent }
       assignmentCompletion { total completed completionPercent }
@@ -20,6 +21,7 @@ export async function GET() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
     body: JSON.stringify({ query }),
+    cache: 'no-store',
   });
 
   if (!res.ok) {
@@ -38,5 +40,7 @@ export async function GET() {
     assignmentCompletion: r.assignmentCompletion || null,
   })).sort((a, b) => a.name.localeCompare(b.name));
 
-  return Response.json({ students });
+  return Response.json({ students }, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }
