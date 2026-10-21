@@ -666,7 +666,7 @@ export default function GameplanGenerator() {
                   ].map(opt => (
                     <button
                       key={opt.val}
-                      onClick={() => { setPullMode(opt.val); setPlatformData(null); setPlatformError(''); setSearchResults([]); setSelectedStudent(null); }}
+                      onClick={() => { setPullMode(opt.val); setPlatformData(null); setPlatformError(''); setSelectedStudent(null); setStudentSearch(''); }}
                       style={{
                         flex: 1,
                         padding: '9px 0',
