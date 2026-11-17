@@ -32,7 +32,7 @@ export async function GET(req) {
 // POST /api/contracts/sign — process a signature submission
 export async function POST(req) {
   try {
-    const { token, signedName } = await req.json();
+    const { token, signedName, marketingConsent } = await req.json();
     if (!token || !signedName?.trim()) {
       return NextResponse.json({ error: 'Missing token or signedName' }, { status: 400 });
     }
@@ -48,6 +48,7 @@ export async function POST(req) {
       ...contract.contract_data,
       signedName: signedName.trim(),
       signedAt,
+      marketingConsent: !!marketingConsent,
     };
 
     // Generate signed PDF

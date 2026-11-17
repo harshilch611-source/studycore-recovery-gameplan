@@ -9,6 +9,7 @@ export default function SignContractPage() {
   const [contractInfo, setContractInfo] = useState(null);
   const [signedName, setSignedName] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [driveUrl, setDriveUrl] = useState('');
 
@@ -32,7 +33,7 @@ export default function SignContractPage() {
       const res = await fetch('/api/contracts/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, signedName: signedName.trim() }),
+        body: JSON.stringify({ token, signedName: signedName.trim(), marketingConsent }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Signing failed');
@@ -190,6 +191,16 @@ export default function SignContractPage() {
                     I confirm that I have read and understand all terms of this Agreement{isTutorStudent ? ', including the Early Departure Consequences in Section 3,' : ''} and agree to be legally bound by them. I acknowledge this electronic signature carries the same legal weight as a handwritten signature.
                   </span>
                 </label>
+
+                {!isTutor && !isTutorStudent && (
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', marginBottom: 24 }}>
+                    <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)} disabled={state === 'signing'}
+                      style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }} />
+                    <span style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+                      Optional: I agree StudyCore may share my student's anonymized score improvement in its marketing. (Not required to sign.)
+                    </span>
+                  </label>
+                )}
 
                 {/* Signature preview */}
                 {signedName && (
@@ -410,7 +421,7 @@ function StudentContractText({ data }) {
       <ContractSection title="01 — Parties & Program Details">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <tbody>
-            {[['Student Name', d.studentName], ['Grade', d.studentGrade], ['Starting SAT Score', d.startingScore ? `${d.startingScore} (verified via diagnostic)` : '—'],
+            {[['Student Name', d.studentName], ['Grade', d.studentGrade],
               ['Target SAT Score', d.targetScore], ['Parent Name', d.parentName], ['Parent Email', d.parentEmail], ['Parent Phone', d.parentPhone]].map(([l, v]) => (
               <tr key={l} style={{ borderBottom: '1px solid #f1f5f9' }}>
                 <td style={{ fontWeight: '700', padding: '5px 12px 5px 0', width: 160, verticalAlign: 'top' }}>{l}</td>
@@ -455,21 +466,18 @@ function StudentContractText({ data }) {
 
       <ContractSection title="04 — Payment Terms">
         <p><strong>Total Program Investment:</strong> {fmt(d.totalInvestment)}<br />
-        <strong>Platform Fee (Non-refundable):</strong> $200.00 — 1 year platform access from program start<br />
-        <strong>Payment Structure:</strong> {d.paymentStructure || '—'}<br />
-        <strong>Amount Due at Signing:</strong> {fmt(d.totalInvestment)}</p>
-        {d.paymentStructure === 'Payment Plan' && d.paymentPlan && (
-          <p><strong>Installment Schedule:</strong> {d.paymentPlan}</p>
-        )}
-        <p><strong>Payment Failure:</strong> If any scheduled payment fails, StudyCore will notify Client via email or text within 2 business days. Client has five (5) business days from notification to resolve the failed payment. Sessions will continue during this grace period. If unresolved after 5 business days, sessions will be paused until the account is brought current. StudyCore is not liable for delays in Student's preparation resulting from a program pause due to non-payment.</p>
-        <p>All payments processed via Stripe. <strong>NO CHARGEBACKS</strong> except where StudyCore fails to deliver services. Unauthorized chargebacks will be formally contested using this signed Agreement.</p>
+        <strong>Platform Fee (Non-refundable):</strong> $200.00, included in the Total Program Investment (1 year platform access from program start)<br />
+        <strong>When & How to Pay:</strong> In full at enrollment, through the secure StudyCore payment link (Stripe)</p>
+        <p><strong>Financing Options:</strong> At checkout, Client may pay by card or choose a financing option offered through the payment link (such as Affirm or Klarna). If Client chooses financing, the financing provider pays StudyCore the full program amount, and Client repays the provider under the provider's own terms. Any installments, interest or fees are set by and owed to the financing provider, not StudyCore, and are not part of this Agreement. StudyCore does not offer its own payment plans.</p>
+        <p><strong>Program Start:</strong> Tutor matching and scheduling begin once payment is complete.</p>
+        <p><strong>NO CHARGEBACKS:</strong> Client agrees not to initiate a chargeback, payment dispute or reversal with their bank, card issuer or financing provider. Refunds are handled under Section 05, or where both parties have agreed to a refund in writing. Any unauthorized chargebacks will be formally contested by StudyCore LLC using this signed Agreement as evidence.</p>
       </ContractSection>
 
       <ContractSection title="05 — Cancellation & Refund Policy">
         <p><strong>Program Pause:</strong> Up to 2 pauses per program, max 2 weeks each, with 48 hours written notice. Program end date extends accordingly.</p>
         <p><strong>StudyCore-Initiated Cancellations:</strong> If StudyCore or the assigned tutor must cancel a scheduled session, StudyCore will notify Client as soon as possible and coordinate a makeup session at a mutually agreeable time at no additional cost.</p>
         {d.refundPolicy === 'prorated' ? (
-          <p><strong>Discontinuation:</strong> If Client discontinues at any point, StudyCore will provide a prorated refund: (Total Investment − $200 Platform Fee) × (sessions remaining / total sessions). The $200 Platform Fee is non-refundable.</p>
+          <p><strong>Discontinuation:</strong> If Client discontinues at any point, StudyCore will provide a prorated refund: (Total Investment − $200 Platform Fee) × (sessions remaining / total sessions). The $200 Platform Fee is non-refundable. Refunds are returned to the original payment method; for purchases made with financing, the refund is sent to the financing provider and reduces Client's balance with that provider.</p>
         ) : (
           <p><strong>Discontinuation:</strong> If Client discontinues within the first three (3) 1-on-1 sessions, StudyCore will refund the program fee (Total Investment minus the non-refundable $200 Platform Fee). After session 3, no refund is available. The $200 Platform Fee is non-refundable.</p>
         )}
@@ -477,7 +485,7 @@ function StudentContractText({ data }) {
 
       {d.hasGuarantee ? (
         <ContractSection title="06 — Performance Guarantee">
-          <p>If Student completes all {d.totalHours || '—'} sessions, remains Engaged throughout the program, completes all assigned work, and does not achieve {d.targetScore || '—'}+ on the Target SAT Test ({d.targetTestDate || '—'}), StudyCore will continue working with Student at no additional cost — through up to <strong>ten (10) additional 1-on-1 sessions</strong> — until {d.targetScore || '—'}+ is achieved or the ten-session guarantee period has been completed, whichever comes first.</p>
+          <p>If Student completes all {d.totalHours || '—'} sessions, remains Engaged throughout the program, completes all assigned work, and does not achieve {d.targetScore || '—'}+ on the Target SAT Test ({d.targetTestDate || '—'}), StudyCore will continue working with Student at no additional cost until Student achieves {d.targetScore || '—'}+ on a subsequent official SAT. The number, frequency and format of these additional sessions (for example, 1-on-1 sessions, office hours or targeted practice) are decided by StudyCore at its discretion, based on what will most benefit Student's progress toward the target score.</p>
           <p><strong>Eligibility:</strong> Student must attend all sessions, remain Engaged, complete 100% of assigned homework and practice tests, and fully comply with all Client Responsibilities in Section 07.</p>
         </ContractSection>
       ) : (
@@ -495,25 +503,24 @@ function StudentContractText({ data }) {
           <li>Complete practice tests independently under timed conditions</li>
           <li><strong>SAT Registration:</strong> Register Student for the Target SAT Test ({d.targetTestDate || '—'}) within 4 weeks of program start and provide StudyCore with confirmation.{d.hasGuarantee ? ' Failure to register within this window voids the Performance Guarantee.' : ''}</li>
           <li>Reliable internet and device for online sessions</li>
-          <li>Keep payment method on file current</li>
         </ul>
       </ContractSection>
 
       <ContractSection title="08 — Non-Solicitation">
-        <p>Client may not directly hire or solicit any StudyCore tutor for private services during the program and for 12 months following the program end date. Violation: fee equal to 6 months of the tutor's standard StudyCore rate.</p>
+        <p>Client may not directly hire or solicit any StudyCore tutor for private services during the program and for 12 months following the program end date. If Client engages a StudyCore tutor outside of StudyCore during this period, StudyCore may end this Agreement, and the Performance Guarantee in Section 06 no longer applies.</p>
       </ContractSection>
 
       <ContractSection title="09 — Tutor Assignment & Substitution">
-        <p>StudyCore reserves the right to reassign Student to a different tutor if needed. Client may request a tutor change at support@studycore.net.</p>
+        <p>StudyCore reserves the right to reassign Student to a different tutor if needed. If Client is unhappy with the assigned tutor for any reason, StudyCore will switch Student to a different tutor upon request to support@studycore.net.</p>
       </ContractSection>
 
       <ContractSection title="10 — Recording & Communications Consent">
-        <p>Sessions recorded via Fathom. Client consents to program communications via email and SMS. Client optionally consents to anonymized score results used for marketing; revocable in writing at any time.</p>
+        <p>Sessions recorded via Fathom. Client consents to program communications via email and SMS. Marketing use of results is opt-in only: StudyCore will use Student's anonymized score improvement in marketing only if Client checks the optional box below. Client may withdraw this consent in writing at any time.</p>
         <p><strong>Score Release Authorization:</strong> Client authorizes StudyCore LLC to review Student's official College Board score reports as needed to administer this Agreement, including verification of performance guarantee eligibility and program outcome tracking. Client agrees to provide StudyCore with the official score report following the Target SAT Test.</p>
       </ContractSection>
 
       <ContractSection title="11–16 — IP, Confidentiality, Liability, Force Majeure, Disputes, Entire Agreement">
-        <p>All StudyCore materials are proprietary and for personal use only. Student data is confidential. Liability capped at total amount paid. Force majeure extends applicable deadlines. Disputes resolved by arbitration in San Ramon, CA under AAA rules, governed by California law. This Agreement supersedes all prior discussions; modifications require written agreement.</p>
+        <p>All StudyCore materials are proprietary and for personal use only. Student data is confidential. Liability capped at total amount paid. Force majeure extends applicable deadlines. Disputes are first handled informally via support@studycore.net; if unresolved within 30 days, either party may go to small claims court in the county where Client resides, or to binding arbitration under the AAA Consumer Arbitration Rules held by video or in Client's county, with StudyCore paying arbitration fees beyond the consumer filing fee. Governed by California law. This Agreement supersedes all prior discussions; modifications require written agreement.</p>
       </ContractSection>
     </div>
   );

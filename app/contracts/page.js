@@ -688,12 +688,10 @@ function StudentPreviewBody({ student }) {
         </table>
       </PS>
       <PS title="02 — Payment">
-        <p><strong>Total:</strong> {fmt(student.totalInvestment)} · <strong>Platform Fee:</strong> $200 non-refundable (1 yr platform access) · <strong>Structure:</strong> {student.paymentStructure}. No chargebacks except where StudyCore fails to deliver.</p>
-        {student.paymentStructure === 'Payment Plan' && student.paymentPlan && <p><strong>Installment Schedule:</strong> {student.paymentPlan}</p>}
-        <p><strong>Payment Failure:</strong> 5-day grace period after notification. Sessions pause if unresolved.</p>
+        <p><strong>Total:</strong> {fmt(student.totalInvestment)}, includes the $200 non-refundable platform fee (1 yr platform access). Paid in full at enrollment through the payment link, by card or financing at checkout (Affirm/Klarna terms are between the family and the provider). No chargebacks; refunds per the refund policy, returned to the original payment method or financing provider.</p>
       </PS>
       {student.hasGuarantee ? (
-        <PS title="03 — Performance Guarantee"><p>If Student completes all {student.totalHours || '—'} sessions, stays Engaged, and doesn't reach {student.targetScore || '—'} by {student.targetTestDate || '—'}, StudyCore provides up to <strong>10 additional 1-on-1 sessions</strong> at no additional cost until the target is achieved or the 10-session guarantee period is completed, whichever comes first.</p></PS>
+        <PS title="03 — Performance Guarantee"><p>If Student completes all {student.totalHours || '—'} sessions, stays Engaged, and doesn't reach {student.targetScore || '—'} by {student.targetTestDate || '—'}, StudyCore keeps working with Student at no additional cost until the target is achieved; the number, frequency and format of extra sessions are at StudyCore's discretion.</p></PS>
       ) : (
         <PS title="03 — No Performance Guarantee"><p>This contract does not include a performance guarantee. StudyCore will deliver all services described but makes no guarantee of a specific score outcome.</p></PS>
       )}
@@ -701,7 +699,7 @@ function StudentPreviewBody({ student }) {
       <PS title="05 — Cancellation">
         <p>Pause up to 2x per program (max 2 weeks each). $200 platform fee is non-refundable. {student.refundPolicy === 'prorated' ? 'Discontinuation: pro-rated refund on unused sessions (Total − $200) × (remaining/total).' : 'Discontinuation: full program fee refund only within first 3 sessions. No refund after session 3.'}</p>
       </PS>
-      <PS title="06 — Non-Solicitation / Recording / IP / Disputes"><p>No private solicitation of tutors for 12 months. Sessions recorded via Fathom. All materials are StudyCore IP. Disputes: arbitration in San Ramon, CA, California law.</p></PS>
+      <PS title="06 — Non-Solicitation / Recording / IP / Disputes"><p>No private solicitation of tutors for 12 months (StudyCore may end the agreement and the guarantee). Tutor switch on request if the family is unhappy. Sessions recorded via Fathom; marketing use of results is opt-in. All materials are StudyCore IP. Disputes: informal first, then small claims or AAA consumer arbitration in the family's county; California law.</p></PS>
 
       <div style={{ marginTop: 40, paddingTop: 24, borderTop: '2px solid #e2e8f0' }}>
         <p style={{ fontWeight: '700', fontSize: 14, color: '#0f172a', marginBottom: 20 }}>SIGNATURES</p>
